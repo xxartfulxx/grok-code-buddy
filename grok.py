@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 import requests
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
 
 load_dotenv()
 XAI_API_KEY = os.getenv('XAI_API_KEY')
@@ -14,7 +16,7 @@ def fetch_grok_response(prompt):
     REQUEST_COUNT += 1
     try:
         response = requests.post(
-            'https://api.x.ai/v1/chat/completions',  # Full, correct URL
+            'https://api.x.ai/v1/chat/completions',
             json={
                 'model': 'grok-beta',
                 'messages': [{'role': 'user', 'content': prompt}],
@@ -30,21 +32,31 @@ def fetch_grok_response(prompt):
     except requests.exceptions.RequestException as e:
         return f"Oops, something went wrong: {str(e)}"
 
-def main():
-    print("Welcome to Grok's Code Companion!")
-    print(f"Daily limit: {REQUEST_LIMIT} requests—keeping it lean!")
-    while True:
-        prompt = input("Ask Grok a coding question (or 'quit' to exit): ")
-        if prompt.lower() == 'quit':
-            print("See ya, birthday star!")
-            break
-        if not prompt.strip():
-            print("Please ask something!")
-            continue
-        print("Thinking...")
-        response = fetch_grok_response(prompt)
-        print(response)
-        print(f"Requests used: {REQUEST_COUNT}/{REQUEST_LIMIT}")
+def ask_grok():
+    prompt = input_field.get("1.0", tk.END).strip()
+    if not prompt:
+        messagebox.showwarning("Empty Input", "Please ask something!")
+        return
+    response_field.delete("1.0", tk.END)
+    response_field.insert(tk.END, "Thinking...\n")
+    response = fetch_grok_response(prompt)
+    response_field.delete("1.0", tk.END)
+    response_field.insert(tk.END, f"{response}\n\nRequests: {REQUEST_COUNT}/{REQUEST_LIMIT}")
 
-if __name__ == "__main__":
-    main()
+root = tk.Tk()
+root.title("Grok's Code Companion (Birthday Edition)")
+root.geometry("400x500")
+
+tk.Label(root, text="Ask Grok a Coding Question", font=("Arial", 14, "bold")).pack(pady=10)
+
+input_field = scrolledtext.ScrolledText(root, height=5, width=40, wrap=tk.WORD)
+input_field.pack(pady=5)
+
+tk.Button(root, text="Ask", command=ask_grok).pack(pady=5)
+
+response_field = scrolledtext.ScrolledText(root, height=15, width=40, wrap=tk.WORD)
+response_field.pack(pady=5)
+
+tk.Button(root, text="Quit", command=root.quit).pack(pady=5)
+
+root.mainloop()
