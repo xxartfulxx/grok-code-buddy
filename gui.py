@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext, messagebox, ttk
+from tkinter import messagebox, ttk
 import api
 from utils import format_code_block
 from db import load_chat, delete_chat, get_chat_history
@@ -46,15 +46,29 @@ class GrokGUI:
 
         tk.Label(chat_frame, text="Grok Chat by debPii", font=("Helvetica", 20, "bold"), fg="#ffffff", bg="#000000").pack(pady=5)
 
-        self.answer_field = scrolledtext.ScrolledText(chat_frame, height=20, width=50, wrap=tk.WORD, bg="#1a1a1a", fg="#ffffff", font=("Courier", 10), bd=0, relief="flat")
-        self.answer_field.pack(fill="both", expand=True)
+        # Answer field with scrollbar
+        answer_container = tk.Frame(chat_frame, bg="#000000")
+        answer_container.pack(fill="both", expand=True)
+        self.answer_field = tk.Text(answer_container, height=20, width=50, wrap=tk.WORD, bg="#1a1a1a", fg="#ffffff", font=("Courier", 10), bd=0, relief="flat")
+        self.answer_field.pack(side=tk.LEFT, fill="both", expand=True)
+        scrollbar = tk.Scrollbar(answer_container, command=self.answer_field.yview)
+        scrollbar.pack(side=tk.RIGHT, fill="y")
+        self.answer_field.config(yscrollcommand=scrollbar.set)
         self.answer_field.insert(tk.END, "Hey, I’m Grok! Start a new chat or pick one from the left.\n")
         self.answer_field.bind("<Button-3>", self.show_context_menu)
+        self.answer_field.tag_configure("keyword", foreground="#ff5555")  # Red
+        self.answer_field.tag_configure("string", foreground="#55ff55")   # Green
+        self.answer_field.tag_configure("comment", foreground="#888888")  # Grey
+        self.answer_field.tag_configure("normal", foreground="#ffffff")   # White
 
+        # Input field with scrollbar
         input_frame = tk.Frame(chat_frame, bg="#000000")
-        input_frame.pack(fill="x", pady=5)
-        self.input_field = scrolledtext.ScrolledText(input_frame, height=3, width=50, wrap=tk.WORD, bg="#1a1a1a", fg="#ffffff", font=("Helvetica", 10), bd=0, relief="flat", insertbackground="#ff0000")
+        input_frame.pack(fill="x", pady=(5, 0))
+        self.input_field = tk.Text(input_frame, height=3, width=50, wrap=tk.WORD, bg="#1a1a1a", fg="#ffffff", font=("Helvetica", 10), bd=0, relief="flat", insertbackground="#ff0000")
         self.input_field.pack(side=tk.LEFT, fill="x", expand=True)
+        input_scrollbar = tk.Scrollbar(input_frame, command=self.input_field.yview)
+        input_scrollbar.pack(side=tk.RIGHT, fill="y")
+        self.input_field.config(yscrollcommand=input_scrollbar.set)
         self.input_field.bind("<Return>", self.send_prompt)
         self.input_field.bind("<Control-v>", self.paste_text)
         self.input_field.bind("<Button-3>", self.show_context_menu)
@@ -64,7 +78,7 @@ class GrokGUI:
         self.context_menu.add_command(label="Copy", command=self.copy_text, background="#1a1a1a", foreground="#ffffff")
 
         button_frame = tk.Frame(chat_frame, bg="#000000")
-        button_frame.pack(pady=5)
+        button_frame.pack(fill="x", pady=(5, 0))
         ttk.Button(button_frame, text="Send", command=self.send_prompt, style="TButton").pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="New Chat", command=self.new_chat_callback, style="TButton").pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Clear All", command=self.clear_all_callback, style="Clear.TButton").pack(side=tk.LEFT, padx=5)
@@ -76,7 +90,7 @@ class GrokGUI:
         prompt = self.input_field.get("1.0", tk.END).strip()
         if not prompt:
             messagebox.showinfo("Hey!", "Got a question? Throw it my way!")
-            return
+            return "break"
         self.input_field.delete("1.0", tk.END)
         self.answer_field.delete("1.0", tk.END)
         self.answer_field.insert(tk.END, "Processing your cosmic query...\n")
@@ -84,6 +98,7 @@ class GrokGUI:
         self.root.update()
         print("Calling send_callback...")
         self.send_callback(prompt)
+        return "break"
 
     def display_session(self):
         self.answer_field.delete("1.0", tk.END)
@@ -95,7 +110,9 @@ class GrokGUI:
                 self.answer_field.insert(tk.END, f"You: {entry['content']}\n")
             else:
                 formatted_content = format_code_block(entry['content'])
-                self.answer_field.insert(tk.END, f"Grok: {formatted_content}\n")
+                self.answer_field.insert(tk.END, "Grok: ")
+                for text, tag in formatted_content:
+                    self.answer_field.insert(tk.END, text, tag)
         self.answer_field.insert(tk.END, f"\n[Requests: {self.request_count}/{api.REQUEST_LIMIT}]")
         self.answer_field.see(tk.END)
         print(f"Displayed session, chat request count: {self.request_count}, global count: {api.REQUEST_COUNT}")
@@ -106,8 +123,8 @@ class GrokGUI:
             timestamp = selected.split(" [X]")[0]
             messages, chat_id = load_chat(self.conn, timestamp)
             self.session[:] = messages
-            self.current_chat_id = chat_id if chat_id else str(uuid.uuid4())  # Set chat_id
-            self.request_count = len(messages) // 2  # Approximate requests from message pairs
+            self.current_chat_id = chat_id if chat_id else str(uuid.uuid4())
+            self.request_count = len(messages) // 2
             print(f"Loaded chat with chat_id: {self.current_chat_id}, messages: {messages}")
             self.display_session()
 
@@ -117,7 +134,7 @@ class GrokGUI:
             timestamp = selected.split(" [X]")[0]
             delete_chat(self.conn, timestamp)
             self.update_history_list()
-            if self.session == load_chat(self.conn, timestamp)[0]:  # Compare messages only
+            if self.session == load_chat(self.conn, timestamp)[0]:
                 self.session.clear()
                 self.answer_field.delete("1.0", tk.END)
                 self.answer_field.insert(tk.END, "Chat deleted! Start a new one?\n")

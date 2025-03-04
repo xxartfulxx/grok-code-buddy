@@ -12,10 +12,10 @@ def main():
         nonlocal gui
         print(f"Sending prompt: {prompt}")
         response = fetch_grok_response(prompt, current_session, gui)
-        print(f"Got response: {response}")
-        save_session(conn, current_session, gui.current_chat_id)
-        print("Session saved, updating GUI...")
-        gui.display_session()
+        print(f"Got initial response: {response}")
+        gui.answer_field.delete("1.0", tk.END)
+        gui.answer_field.insert(tk.END, response + "\n")
+        # Save moved to api.py thread to include API response
         gui.update_history_list()
         print("GUI update called—history should refresh")
 

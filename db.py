@@ -5,20 +5,17 @@ import json
 DB_FILE = "grok_chat_history.db"
 
 def initialize_db():
-    """Set up the SQLite database and table, dropping old version if exists."""
+    """Set up the SQLite database and table, only creating if it doesn’t exist."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS chats")
-    cursor.execute('''
-        CREATE TABLE chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            messages TEXT NOT NULL,
-            chat_id TEXT NOT NULL
-        )
-    ''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        messages TEXT NOT NULL,
+        chat_id TEXT NOT NULL
+    )''')
     conn.commit()
-    print("Database initialized with new schema")
+    print("Database initialized or already exists")
     return conn
 
 def save_session(conn, session, chat_id):
